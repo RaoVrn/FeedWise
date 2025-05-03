@@ -1,0 +1,37 @@
+# --- Node.js (React Frontend) ---
+frontend/node_modules/
+frontend/dist/
+
+# --- Python (FastAPI Backend) ---
+backend/app/__pycache__/
+backend/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- Environment files ---
+backend/app/.env
+frontend/src/.env
+
+# --- IDEs / Editors ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --- System files ---
+.DS_Store
+Thumbs.db
+
+# --- Logs and temp ---
+*.log
+
+# --- OS-specific ---
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# --- Others ---
+*.env
+*.env.local
+*.env.production
