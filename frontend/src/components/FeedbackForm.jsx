@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { submitFeedback } from '../api';
 
-function FeedbackForm({ onSubmitted }) {
+function FeedbackForm({ formId, onSubmitted }) {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!text) return;
+    if (!text || !formId) return;
     setLoading(true);
-    await submitFeedback(text);
+    await submitFeedback(formId, { text }); // Send with formId
     setText('');
     setLoading(false);
     onSubmitted(); // Refresh the feedback list
