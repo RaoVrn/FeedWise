@@ -1,37 +1,102 @@
 # --- Node.js (React Frontend) ---
+# Dependencies
 frontend/node_modules/
+node_modules/
+
+# Build outputs
 frontend/dist/
+frontend/build/
+frontend/.cache/
+
+# Logs
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+# Lock files (uncomment if you want to ignore them)
+# frontend/package-lock.json
+# frontend/yarn.lock
+# frontend/pnpm-lock.yaml
 
 # --- Python (FastAPI Backend) ---
-backend/app/__pycache__/
-backend/__pycache__/
-*.pyc
-*.pyo
-*.pyd
+# Python cache files
+backend/**/__pycache__/
+backend/**/*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environment
+backend/venv/
+backend/.env/
+backend/env/
+.venv/
+.env/
+venv/
+
+# Distribution / packaging
+backend/dist/
+backend/build/
+backend/*.egg-info/
 
 # --- Environment files ---
-backend/app/.env
-frontend/src/.env
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+backend/**/.env
+frontend/**/.env
 
 # --- IDEs / Editors ---
-.vscode/
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json
+
+# JetBrains IDEs
 .idea/
+*.iml
+*.iws
+.idea_modules/
+
+# Sublime Text
 *.sublime-project
 *.sublime-workspace
 
+# --- Testing and Coverage ---
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
 # --- System files ---
+# macOS
 .DS_Store
-Thumbs.db
-
-# --- Logs and temp ---
-*.log
-
-# --- OS-specific ---
-ehthumbs.db
+.AppleDouble
+.LSOverride
 Icon?
-Desktop.ini
+._*
 
-# --- Others ---
-*.env
-*.env.local
-*.env.production
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.fuse_hidden*
+.Trash-*
+
+# --- Logs and databases ---
+*.log
+*.sql
+*.sqlite
+*.sqlite3

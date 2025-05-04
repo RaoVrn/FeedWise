@@ -140,9 +140,12 @@ function FormConnector({ onFormConnect }) {
               </p>
               <Link 
                 to="/docs"
-                className="btn-primary bg-white dark:bg-gray-800 !text-indigo-600 dark:!text-indigo-400 border-2 border-current hover:bg-indigo-50 dark:hover:bg-gray-700 inline-block"
+                className="btn-primary inline-flex items-center gap-2 hover:scale-105 transform transition-all duration-300"
               >
-                View Documentation
+                <span>View Documentation</span>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </Link>
             </div>
           </div>
