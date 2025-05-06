@@ -74,10 +74,17 @@ async def analyze_sentiment(text: str) -> str:
         "Analyze the sentiment of this feedback and choose one option:\n"
         f"Text: '{text}'\n"
         "Options: positive, negative, neutral\n"
-        "Consider:\n"
-        "- Positive: Clearly expressing satisfaction, praise, or optimism\n"
-        "- Negative: Indicating dissatisfaction, criticism, or problems\n"
-        "- Neutral: Factual, balanced, or unclear sentiment\n"
+        "Consider these detailed guidelines:\n"
+        "- Positive: Expressions of satisfaction, praise, optimism, excitement, joy, appreciation, or preference. Look for positive adjectives (good, great, excellent, awesome, amazing), exclamation marks (!), positive emojis, or phrases indicating something is 'the best' or 'one of the best'.\n"
+        "- Negative: Expressions of dissatisfaction, criticism, problems, disappointment, frustration, anger, or dislike. Look for negative adjectives (bad, terrible, awful, disappointing), complaints, or phrases indicating something needs improvement.\n"
+        "- Neutral: Purely factual statements without clear emotion, balanced opinions with equal positive and negative aspects, or ambiguous sentiment.\n"
+        "Examples:\n"
+        "- 'The product works as expected' → neutral\n"
+        "- 'This is good' → positive\n"
+        "- 'I didn't like it' → negative\n"
+        "- 'This was amazing!! Best thing ever!!!' → positive\n"
+        "- 'The movie was very good, one of the best' → positive\n"
+        "Pay special attention to superlatives, exclamation marks, and enthusiastic language which strongly indicate positive sentiment.\n"
         "Reply with only one word: positive, negative, or neutral"
     )
     try:
@@ -89,15 +96,37 @@ async def analyze_sentiment(text: str) -> str:
             logger.warning(f"Unexpected sentiment value: {sentiment}")
     except Exception as e:
         logger.error(f"Gemini Sentiment Analysis Error: {e}")
+    
+    # If analysis fails, attempt a simple rule-based backup approach
+    text_lower = text.lower()
+    positive_keywords = ['good', 'great', 'excellent', 'amazing', 'awesome', 'love', 'best', 'fantastic', 'wonderful', 'brilliant']
+    negative_keywords = ['bad', 'terrible', 'awful', 'poor', 'horrible', 'hate', 'worst', 'disappoint', 'annoying', 'useless']
+    
+    positive_count = sum(1 for word in positive_keywords if word in text_lower)
+    negative_count = sum(1 for word in negative_keywords if word in text_lower)
+    exclamation_count = text.count('!')
+    
+    # Weigh exclamations as positive indicators
+    positive_score = positive_count + (exclamation_count * 0.5)
+    
+    if positive_score > negative_count:
+        return "positive"
+    elif negative_count > positive_score:
+        return "negative"
     return "neutral"
 
 async def analyze_sentiment_detailed(text: str) -> tuple[str, str]:
     prompt = (
-        "Analyze the sentiment and explain why:\n"
+        "Analyze the sentiment of this feedback and explain why:\n"
         f"Text: '{text}'\n"
+        "First determine if the sentiment is positive, negative, or neutral using these detailed guidelines:\n"
+        "- Positive: Expressions of satisfaction, praise, optimism, excitement, joy, appreciation, or preference. Look for positive adjectives (good, great, excellent, awesome, amazing), exclamation marks (!), positive emojis, or phrases indicating something is 'the best' or 'one of the best'.\n"
+        "- Negative: Expressions of dissatisfaction, criticism, problems, disappointment, frustration, anger, or dislike. Look for negative adjectives (bad, terrible, awful, disappointing), complaints, or phrases indicating something needs improvement.\n"
+        "- Neutral: Purely factual statements without clear emotion, balanced opinions with equal positive and negative aspects, or ambiguous sentiment.\n"
+        "Pay special attention to superlatives, exclamation marks, and enthusiastic language which strongly indicate positive sentiment.\n"
         "Provide your response in two parts:\n"
         "1. One word (positive/negative/neutral)\n"
-        "2. A brief explanation of why you chose this sentiment\n"
+        "2. A brief explanation of your reasoning, citing specific words or phrases from the text that led to your classification\n"
         "Format: sentiment\nexplanation"
     )
     try:
@@ -106,12 +135,32 @@ async def analyze_sentiment_detailed(text: str) -> tuple[str, str]:
             parts = response.text.strip().split('\n', 1)
             sentiment = parts[0].strip().lower()
             explanation = parts[1].strip() if len(parts) > 1 else ""
+            
+            # Verify sentiment is one of the allowed values
             if sentiment in {"positive", "negative", "neutral"}:
-                return sentiment, explanation if explanation else "Analysis not available. The feedback was classified as " + sentiment + " based on its overall tone."
+                if explanation:
+                    return sentiment, explanation
+                else:
+                    return sentiment, "Analysis not available. The feedback was classified as " + sentiment + " based on its overall tone."
+            
+            # If sentiment is unexpected, try to extract from explanation
             logger.warning(f"Unexpected sentiment value: {sentiment}")
+            for valid_sentiment in ["positive", "negative", "neutral"]:
+                if valid_sentiment in sentiment:
+                    return valid_sentiment, explanation if explanation else f"The feedback was classified as {valid_sentiment} based on its overall tone."
     except Exception as e:
         logger.error(f"Gemini Sentiment Analysis Error: {e}")
-    return "neutral", "Unable to perform sentiment analysis. The feedback has been marked as neutral by default."
+    
+    # Fallback to the simple analysis if detailed fails
+    sentiment = await analyze_sentiment(text)
+    
+    # Generate a basic explanation based on fallback sentiment
+    if sentiment == "positive":
+        return sentiment, "The feedback contains positive language or indicators of satisfaction."
+    elif sentiment == "negative":
+        return sentiment, "The feedback contains negative language or indicators of dissatisfaction."
+    else:
+        return "neutral", "The sentiment analysis could not determine a clear positive or negative tone in this feedback."
 
 async def generate_summary(text: str) -> str:
     prompt = (
@@ -133,12 +182,17 @@ async def generate_summary(text: str) -> str:
 
 async def generate_detailed_analysis(text: str) -> str:
     prompt = (
-        "Analyze this feedback and highlight key points:\n"
+        "Analyze this feedback thoroughly:\n"
         f"Text: '{text}'\n"
-        "Consider:\n"
+        "Consider the following aspects in your analysis:\n"
         "- Main themes or topics mentioned\n"
-        "- Specific issues or praise\n"
-        "- Any actionable suggestions\n"
+        "- Sentiment intensity (mild, moderate, strong)\n"
+        "- Specific points of praise or criticism\n"
+        "- Emotional indicators (enthusiasm, disappointment, neutrality)\n"
+        "- Any superlatives or comparisons ('best', 'worst', 'better than', etc.)\n"
+        "- Any actionable suggestions or recommendations\n\n"
+        "For strong positive feedback (like 'amazing!' or 'best ever'), highlight the enthusiasm.\n"
+        "For negative feedback, identify specific pain points and potential improvements.\n\n"
         "Provide a concise but informative analysis in this format:\n"
         "Key Points:\n"
         "Main Themes: [list the main themes]\n"
@@ -199,7 +253,6 @@ async def receive_webhook(form_id: str, submission: DynamicFormSubmission):
             "summary": summary,
             "created_at": now
         }
-
         result = await form_submissions_collection.insert_one(record)
         
         # Return processed feedback
@@ -221,7 +274,7 @@ async def receive_webhook(form_id: str, submission: DynamicFormSubmission):
 
 # --- Fetch Feedback for a Form ---
 @app.get("/feedback/{form_id}")
-async def get_feedback_for_form(form_id: str, 
+async def get_feedback_for_form(form_id: str,
                               search: Optional[str] = None,
                               sentiment: Optional[str] = None,
                               limit: int = 50):
@@ -240,7 +293,7 @@ async def get_feedback_for_form(form_id: str,
                 {"summary": {"$regex": search, "$options": "i"}},
                 {"responses.feedback": {"$regex": search, "$options": "i"}}
             ]
-
+        
         # Execute query
         cursor = form_submissions_collection.find(query)
         cursor = cursor.sort("created_at", -1).limit(limit)
@@ -297,13 +350,13 @@ async def get_feedback_stats(form_id: str):
                 "sentiment": doc["_id"]["sentiment"],
                 "count": doc["count"]
             })
-            
+        
         return FeedbackStats(
             total=total,
             sentiment_counts=sentiment_counts,
             recent_trends=trends
         )
-        
+
     except Exception as e:
         logger.error(f"Stats Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching statistics: {str(e)}")
@@ -327,7 +380,7 @@ async def get_global_stats():
             "responses": responses,
             "satisfaction": satisfaction
         }
-        
+
     except Exception as e:
         logger.error(f"Global Stats Error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching global statistics: {str(e)}")

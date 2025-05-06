@@ -6,8 +6,8 @@ function FeedbackAnalysis({ analysis }) {
   useEffect(() => {
     if (analysis) {
       setVisible(true);
-      // Hide after 10 seconds
-      const timer = setTimeout(() => setVisible(false), 10000);
+      // Hide after 20 seconds instead of 10 to give more time to read
+      const timer = setTimeout(() => setVisible(false), 20000);
       return () => clearTimeout(timer);
     }
   }, [analysis]);
@@ -24,6 +24,20 @@ function FeedbackAnalysis({ analysis }) {
     positive: '😊',
     neutral: '😐',
     negative: '😔'
+  };
+
+  // Function to get a more descriptive sentiment name
+  const getSentimentDescription = (sentiment) => {
+    switch (sentiment) {
+      case 'positive':
+        return 'Positive';
+      case 'negative':
+        return 'Negative';
+      case 'neutral':
+        return 'Neutral';
+      default:
+        return sentiment;
+    }
   };
 
   return (
@@ -44,8 +58,15 @@ function FeedbackAnalysis({ analysis }) {
               {sentimentIcons[analysis.sentiment]}
             </span>
             <span className="font-medium capitalize">
-              {analysis.sentiment} Feedback
+              {getSentimentDescription(analysis.sentiment)} Feedback
             </span>
+          </div>
+
+          <div className="space-y-2">
+            <h4 className="font-medium">Sentiment Analysis</h4>
+            <p className="text-sm whitespace-pre-line">
+              {analysis.sentiment_analysis || "No detailed sentiment analysis available."}
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -54,6 +75,15 @@ function FeedbackAnalysis({ analysis }) {
               {analysis.summary}
             </p>
           </div>
+
+          {analysis.detailed_analysis && (
+            <div className="space-y-2">
+              <h4 className="font-medium">Detailed Analysis</h4>
+              <div className="text-sm whitespace-pre-line bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                {analysis.detailed_analysis}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

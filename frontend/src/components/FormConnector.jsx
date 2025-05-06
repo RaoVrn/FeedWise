@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import FeedbackForm from "./FeedbackForm";
+import CustomFormBuilder from "./CustomFormBuilder";
 
 function FormConnector({ onFormConnect }) {
   const [formId, setFormId] = useState("");
@@ -23,6 +23,10 @@ function FormConnector({ onFormConnect }) {
     setError("");
     setIsConnected(true);
     onFormConnect(trimmedId);
+  };
+  
+  const handleDisconnect = () => {
+    setIsConnected(false);
   };
 
   return (
@@ -101,7 +105,23 @@ function FormConnector({ onFormConnect }) {
             </div>
           </div>
         ) : (
-          <FeedbackForm formId={formId} onSubmitSuccess={() => {}} />
+          <div className="card p-8">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Connected Form: <span className="text-indigo-600 dark:text-indigo-400">{formId}</span>
+              </h2>
+              <button 
+                onClick={handleDisconnect}
+                className="btn-secondary flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                </svg>
+                Change Form ID
+              </button>
+            </div>
+            <CustomFormBuilder formId={formId} onSubmitSuccess={() => {}} />
+          </div>
         )}
 
         {!isConnected && (
