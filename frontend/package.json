@@ -12,13 +12,16 @@
   "dependencies": {
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/typography": "^0.5.16",
+    "chart.js": "^4.4.9",
     "lodash": "^4.17.21",
     "react": "^18.2.0",
+    "react-chartjs-2": "^5.3.0",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.2.0",
     "react-mermaid2": "^0.1.4",
-    "react-router-dom": "^6.22.1"
+    "react-router-dom": "^6.22.1",
+    "recharts": "^2.15.3"
   },
   "devDependencies": {
     "@eslint/js": "^8.56.0",

@@ -1,6 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { getFeedbackList, getFeedbackStats } from "../api/api";
 import debounce from 'lodash/debounce';
+import { Bar, Doughnut } from 'react-chartjs-2';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
+
+// Register the required Chart.js components
+ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
 function SentimentBadge({ sentiment }) {
   const colors = {
@@ -120,6 +125,11 @@ function FeedbackList({ formId, refreshTrigger }) {
     total: 0,
     sentiment_counts: { positive: 0, neutral: 0, negative: 0 }
   });
+  const [aspectBreakdown, setAspectBreakdown] = useState({
+    positiveAspects: [],
+    neutralAspects: [],
+    negativeAspects: []
+  });
 
   // Debounced search function
   const debouncedSearch = useCallback(
@@ -133,7 +143,11 @@ function FeedbackList({ formId, refreshTrigger }) {
           getFeedbackStats(formId)
         ]);
         setFilteredFeedbacks(feedbackData);
+        setFeedbacks(feedbackData);
         setStats(statsData);
+        
+        // Process feedback to extract aspect data
+        processAspectBreakdown(feedbackData);
       } catch (error) {
         console.error('Error fetching feedback data:', error);
       } finally {
@@ -142,6 +156,92 @@ function FeedbackList({ formId, refreshTrigger }) {
     }, 300),
     [formId]
   );
+
+  // Process feedback to extract aspects based on user input text - with logic to avoid nonsensical phrases
+  const processAspectBreakdown = useCallback((feedbackData) => {
+    // If no feedback data available, return empty
+    if (!feedbackData || feedbackData.length === 0) {
+      setAspectBreakdown({
+        positiveAspects: [],
+        neutralAspects: [],
+        negativeAspects: []
+      });
+      return;
+    }
+    
+    // Initialize aspect counts for each sentiment
+    const aspects = {
+      positive: {},
+      neutral: {},
+      negative: {}
+    };
+
+    // Define common categories that make sense for feedback analysis
+    const commonCategories = {
+      // Product/Service aspects
+      'Design': ['design', 'look', 'appearance', 'interface', 'ui', 'layout', 'visual'],
+      'Functionality': ['function', 'feature', 'functionality', 'capability', 'option', 'ability', 'working'],
+      'Performance': ['performance', 'speed', 'fast', 'slow', 'reliable', 'stable', 'crash', 'bug', 'glitch'],
+      'Content': ['content', 'information', 'data', 'text', 'image', 'video', 'media'],
+      'Usability': ['easy', 'simple', 'intuitive', 'difficult', 'complex', 'confusing', 'user-friendly'],
+      'Quality': ['quality', 'good', 'bad', 'excellent', 'poor', 'amazing', 'terrible'],
+      'Value': ['price', 'value', 'worth', 'expensive', 'cheap', 'cost', 'affordable'],
+      'Support': ['support', 'help', 'service', 'customer service', 'assistance'],
+      // Emotional responses
+      'Satisfaction': ['love', 'like', 'happy', 'satisfied', 'pleased', 'disappointed', 'frustrated'],
+      // Generic content types
+      'Movie': ['movie', 'film', 'cinema', 'actor', 'actress', 'director', 'plot', 'scene'],
+      'Food': ['food', 'restaurant', 'meal', 'dish', 'taste', 'flavor', 'delicious'],
+      'Product': ['product', 'item', 'device', 'gadget', 'tool', 'app', 'application', 'software']
+    };
+    
+    // Process each feedback entry
+    feedbackData.forEach((feedback) => {
+      // Get the raw feedback text from user input
+      const userText = feedback.responses?.feedback || '';
+      if (!userText || userText.trim().length < 3) return;
+      
+      const sentiment = feedback.sentiment || 'neutral';
+      const text = userText.toLowerCase();
+      
+      // Find which category this feedback belongs to
+      let matchedCategory = null;
+      let highestMatchScore = 0;
+      
+      // Check each category
+      Object.entries(commonCategories).forEach(([category, keywords]) => {
+        // Count how many keywords from this category appear in the text
+        const matchScore = keywords.filter(keyword => text.includes(keyword)).length;
+        if (matchScore > highestMatchScore) {
+          highestMatchScore = matchScore;
+          matchedCategory = category;
+        }
+      });
+      
+      // If we found a matching category with at least one keyword
+      if (matchedCategory && highestMatchScore > 0) {
+        aspects[sentiment][matchedCategory] = (aspects[sentiment][matchedCategory] || 0) + 1;
+      } else {
+        // Default categories for unclassified feedback based on sentiment
+        const defaultCategory = sentiment === 'positive' ? 'Positive Feedback' : 
+                               sentiment === 'negative' ? 'Negative Feedback' : 'General Feedback';
+        aspects[sentiment][defaultCategory] = (aspects[sentiment][defaultCategory] || 0) + 1;
+      }
+    });
+    
+    // Convert to array format
+    const convertToSortedArray = (obj) => {
+      return Object.entries(obj)
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count);
+    };
+    
+    const positiveAspects = convertToSortedArray(aspects.positive);
+    const neutralAspects = convertToSortedArray(aspects.neutral);
+    const negativeAspects = convertToSortedArray(aspects.negative);
+    
+    setAspectBreakdown({ positiveAspects, neutralAspects, negativeAspects });
+  }, []);
 
   // Fetch initial data and setup search/filter effects
   useEffect(() => {
@@ -156,6 +256,71 @@ function FeedbackList({ formId, refreshTrigger }) {
   const positivePercentage = total ? Math.round((sentiment_counts.positive || 0) / total * 100) : 0;
   const neutralPercentage = total ? Math.round((sentiment_counts.neutral || 0) / total * 100) : 0;
   const negativePercentage = total ? Math.round((sentiment_counts.negative || 0) / total * 100) : 0;
+
+  const { positiveAspects, neutralAspects, negativeAspects } = aspectBreakdown;
+
+  const doughnutData = {
+    labels: ['Positive', 'Neutral', 'Negative'],
+    datasets: [
+      {
+        data: [sentiment_counts.positive, sentiment_counts.neutral, sentiment_counts.negative],
+        backgroundColor: ['#10B981', '#6B7280', '#EF4444'],
+        hoverBackgroundColor: ['#059669', '#4B5563', '#DC2626']
+      }
+    ]
+  };
+
+  const barData = {
+    labels: ['Positive', 'Neutral', 'Negative'],
+    datasets: [
+      {
+        label: 'Sentiment Counts',
+        data: [sentiment_counts.positive, sentiment_counts.neutral, sentiment_counts.negative],
+        backgroundColor: ['#10B981', '#6B7280', '#EF4444']
+      }
+    ]
+  };
+
+  // Create sentiment breakdown chart data from real data
+  const aspectBreakdownData = {
+    labels: [
+      ...positiveAspects.map(a => a.label),
+      ...neutralAspects.map(a => a.label),
+      ...negativeAspects.map(a => a.label)
+    ],
+    datasets: [
+      {
+        label: 'Positive Aspects',
+        data: [
+          ...positiveAspects.map(a => a.count),
+          ...neutralAspects.map(() => 0),
+          ...negativeAspects.map(() => 0)
+        ],
+        backgroundColor: 'rgba(16, 185, 129, 0.7)', // Green
+        barPercentage: 0.7,
+      },
+      {
+        label: 'Neutral Aspects',
+        data: [
+          ...positiveAspects.map(() => 0),
+          ...neutralAspects.map(a => a.count),
+          ...negativeAspects.map(() => 0)
+        ],
+        backgroundColor: 'rgba(107, 114, 128, 0.7)', // Gray
+        barPercentage: 0.7,
+      },
+      {
+        label: 'Negative Aspects',
+        data: [
+          ...positiveAspects.map(() => 0),
+          ...neutralAspects.map(() => 0),
+          ...negativeAspects.map(a => a.count)
+        ],
+        backgroundColor: 'rgba(239, 68, 68, 0.7)', // Red
+        barPercentage: 0.7,
+      }
+    ]
+  };
 
   return (
     <section className="section bg-gradient-to-b from-white to-indigo-50 dark:from-gray-900 dark:to-gray-800">
@@ -212,6 +377,177 @@ function FeedbackList({ formId, refreshTrigger }) {
             </div>
           </div>
         </div>
+
+        {/* Sentiment Visualizations - Adjusted size */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div className="card p-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Sentiment Breakdown</h3>
+            <div className="h-64 flex items-center justify-center">
+              <div style={{ maxWidth: '250px', maxHeight: '250px' }}>
+                <Doughnut 
+                  data={doughnutData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                      legend: {
+                        position: 'top',
+                        labels: {
+                          boxWidth: 12,
+                          padding: 15
+                        }
+                      }
+                    }
+                  }} 
+                />
+              </div>
+            </div>
+          </div>
+          <div className="card p-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Sentiment Counts</h3>
+            <div className="h-64">
+              <Bar 
+                data={barData} 
+                options={{ 
+                  responsive: true, 
+                  maintainAspectRatio: true,
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      grid: {
+                        color: 'rgba(200, 200, 200, 0.1)'
+                      }
+                    },
+                    x: {
+                      grid: {
+                        display: false
+                      }
+                    }
+                  }
+                }} 
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Aspect Breakdown Visualization - Only render if we have real data */}
+        {(positiveAspects.length > 0 || neutralAspects.length > 0 || negativeAspects.length > 0) && (
+          <>
+            <div className="card p-4 mb-8">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Feedback Aspect Analysis</h3>
+              <div className="h-72">
+                <Bar 
+                  data={aspectBreakdownData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                      x: {
+                        stacked: true,
+                        grid: {
+                          display: false
+                        }
+                      },
+                      y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        grid: {
+                          color: 'rgba(200, 200, 200, 0.1)'
+                        }
+                      }
+                    },
+                    plugins: {
+                      tooltip: {
+                        callbacks: {
+                          title: function(context) {
+                            return context[0].label;
+                          },
+                          label: function(context) {
+                            return `${context.dataset.label}: ${context.raw} mentions`;
+                          }
+                        }
+                      },
+                      legend: {
+                        position: 'top',
+                        align: 'center',
+                        labels: {
+                          boxWidth: 12,
+                          padding: 15
+                        }
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Aspect Details - Only show if we have real data */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              {/* Positive Aspects Summary */}
+              <div className="card p-4 bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800">
+                <h4 className="font-medium text-green-700 dark:text-green-300 flex items-center gap-2 mb-3">
+                  <span>😊</span> Positive Aspects
+                </h4>
+                {positiveAspects.length > 0 ? (
+                  <ul className="space-y-2">
+                    {positiveAspects.map((aspect, index) => (
+                      <li key={`pos-${index}`} className="flex justify-between items-center">
+                        <span className="text-sm font-medium">{aspect.label}</span>
+                        <span className="bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 px-2 py-0.5 rounded-full text-xs">
+                          {aspect.count} mentions
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-green-700 dark:text-green-300">No positive aspects detected yet</p>
+                )}
+              </div>
+              
+              {/* Neutral Aspects Summary */}
+              <div className="card p-4 bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700">
+                <h4 className="font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2 mb-3">
+                  <span>😐</span> Neutral Aspects
+                </h4>
+                {neutralAspects.length > 0 ? (
+                  <ul className="space-y-2">
+                    {neutralAspects.map((aspect, index) => (
+                      <li key={`neu-${index}`} className="flex justify-between items-center">
+                        <span className="text-sm font-medium">{aspect.label}</span>
+                        <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-0.5 rounded-full text-xs">
+                          {aspect.count} mentions
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">No neutral aspects detected yet</p>
+                )}
+              </div>
+              
+              {/* Negative Aspects Summary */}
+              <div className="card p-4 bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800">
+                <h4 className="font-medium text-red-700 dark:text-red-300 flex items-center gap-2 mb-3">
+                  <span>😔</span> Negative Aspects
+                </h4>
+                {negativeAspects.length > 0 ? (
+                  <ul className="space-y-2">
+                    {negativeAspects.map((aspect, index) => (
+                      <li key={`neg-${index}`} className="flex justify-between items-center">
+                        <span className="text-sm font-medium">{aspect.label}</span>
+                        <span className="bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 px-2 py-0.5 rounded-full text-xs">
+                          {aspect.count} mentions
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-red-700 dark:text-red-300">No negative aspects detected yet</p>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Filters and Search */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
